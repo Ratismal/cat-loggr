@@ -11,6 +11,10 @@ A simple, lightweight utility for making beautiful logs.
 5. Support parsing of multiple arguments, including the inspecting of objects
 6. Support defining display options at execution
 
+## Screenshots
+
+![blargbot logs](https://cat.needs-to-s.top/87a975.png)
+
 ## Installation
 
 ```
