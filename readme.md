@@ -1,3 +1,5 @@
+![npm](https://img.shields.io/npm/v/cat-loggr.svg)(https://www.npmjs.com/package/cat-loggr)
+
 # Cat Loggr
 
 A simple, lightweight utility for making beautiful logs.
