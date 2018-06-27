@@ -1,4 +1,4 @@
-![npm](https://img.shields.io/npm/v/cat-loggr.svg)(https://www.npmjs.com/package/cat-loggr)
+[![npm](https://img.shields.io/npm/v/cat-loggr.svg)](https://www.npmjs.com/package/cat-loggr)
 
 # Cat Loggr
 
