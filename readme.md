@@ -1,6 +1,6 @@
-[![npm](https://img.shields.io/npm/v/cat-loggr.svg)](https://www.npmjs.com/package/cat-loggr)
-
 # Cat Loggr
+
+[![npm](https://img.shields.io/npm/v/cat-loggr.svg)](https://www.npmjs.com/package/cat-loggr)
 
 A simple, lightweight utility for making beautiful logs.
 
