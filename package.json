@@ -1,6 +1,6 @@
 {
   "name": "cat-loggr",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "A utility to make beautiful console logs easily.",
   "main": "index.js",
   "scripts": {
