@@ -83,6 +83,7 @@ module.exports = class CatLoggr {
      * @callback postHookCallback
      * @param {Object} params The params that are sent by the hook
      * @param {string} params.level The level of the log
+     * @param {boolean} params.error A flag signifying that the log is an error
      * @param {string} params.text The final formatted text
      * @param {Date} params.date The timestamp of execution
      * @param {string} params.timestamp The formatted timestamp
@@ -246,7 +247,8 @@ module.exports = class CatLoggr {
                     date: timestamp.raw,
                     timestamp: timestamp.formattedRaw,
                     shard: this._shard ? this._shard.toString() : undefined,
-                    level: level.name
+                    level: level.name,
+                    error: level.err
                 });
                 if (res === undefined || res === null) continue;
                 else {
