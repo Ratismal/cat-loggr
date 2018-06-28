@@ -44,7 +44,8 @@ module.exports = class CatLoggr {
         this._meta = {};
 
         this._hooks = {
-            arg: []
+            arg: [],
+            post: []
         };
     }
 
@@ -56,7 +57,7 @@ module.exports = class CatLoggr {
     }
 
     /**
-     * A hook callback
+     * An argument hook callback function
      * 
      * @callback argHookCallback
      * @param {Object} params The params that are sent by the hook
@@ -66,12 +67,36 @@ module.exports = class CatLoggr {
      */
 
     /**
-     * Adds a pre-hook
+     * Adds na arg-hook
      * @param {preHookCallback} func The hook callback 
      * @returns {CatLoggr} Self for chaining
      */
     addArgHook(func) {
         this._hooks.arg.push(func);
+
+        return this;
+    }
+
+    /**
+     * A post hook callback function
+     * 
+     * @callback postHookCallback
+     * @param {Object} params The params that are sent by the hook
+     * @param {string} params.level The level of the log
+     * @param {string} params.text The final formatted text
+     * @param {Date} params.date The timestamp of execution
+     * @param {string} params.timestamp The formatted timestamp
+     * @param {string} [params.shard] The shard ID
+     * @returns {string|null} The processed result, or `null` to continue executing
+     */
+
+    /**
+     * 
+     * @param {postHookCallback} func
+     * @returns {CatLoggr} Self for chaining
+     */
+    addPostHook(func) {
+        this._hooks.post.push(func);
 
         return this;
     }
@@ -177,7 +202,12 @@ module.exports = class CatLoggr {
 
     get _timestamp() {
         let ts = moment();
-        return { raw: ts.toDate(), formatted: chalk.black.bgWhite(` ${ts.format('MM/DD HH:mm:ss')} `) };
+        let formatted = ts.format('MM/DD HH:mm:ss');
+        return {
+            raw: ts.toDate(),
+            formatted: chalk.black.bgWhite(` ${formatted} `),
+            formattedRaw: formatted
+        };
     }
 
     /**
@@ -193,6 +223,7 @@ module.exports = class CatLoggr {
 
     /**
      * Writes the log to the proper stream.
+     * @param {Level} level The level of the log
      * @param {string} text The text to write
      * @param {boolean} err A flag signifying whether to write to stderr
      * @param {Object} [timestamp] An optional timestamp to use
@@ -200,13 +231,32 @@ module.exports = class CatLoggr {
      * @param {Date} timestamp.raw The raw timestamp
      * @returns {CatLoggr} Self for chaining
      */
-    _write(text, err = false, timestamp) {
+    _write(level, text, err = false, timestamp) {
         if (!timestamp) timestamp = this._timestamp;
+        let levelStr = level.color(this._centrePad(level.name, this._maxLength));
         let stream = err ? this._stderr : this._stdout;
         let shardText = '';
         if (this._shard)
             shardText = chalk.black.bold.bgYellow(this._centrePad(this._shard.toString(), 4, false));
-        stream.write(`${shardText}${timestamp.formatted}${text}\n`);
+
+        for (const hook of this._hooks.post) {
+            if (typeof hook == 'function') {
+                let res = hook({
+                    text,
+                    date: timestamp.raw,
+                    timestamp: timestamp.formattedRaw,
+                    shard: this._shard ? this._shard.toString() : undefined,
+                    level: level.name
+                });
+                if (res === undefined || res === null) continue;
+                else {
+                    text = res.toString();
+                }
+                break;
+            }
+        }
+
+        stream.write(`${shardText}${timestamp.formatted}${levelStr} ${text}\n`);
         return this;
     }
 
@@ -231,7 +281,7 @@ module.exports = class CatLoggr {
     _format(level, ...args) {
         let timestamp = this._timestamp;
         if (level.position > this._level.position) return;
-        let output = level.color(this._centrePad(level.name, this._maxLength)) + ' ';
+        let output = '';
         let text = [];
         for (const arg of args) {
             let finished = false;
@@ -270,6 +320,6 @@ module.exports = class CatLoggr {
             output += '\n' + new Error().stack.split('\n').slice(1).join('\n');
         }
         if (level.err) output = chalk.red(output);
-        return this._write(output, level.err).meta();
+        return this._write(level, output, level.err).meta();
     }
 };

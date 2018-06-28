@@ -127,6 +127,17 @@ loggr.log(cat);
 // kitty!
 ```
 
+You can also define hooks for post processing.
+```js
+const loggr = new CatLoggr()
+    .addPostHook(function({ text }) {
+        return 'Hello, ' + text; 
+    });
+
+loggr.log('world!');
+// Hello, world!
+```
+
 ### Global
 
 If you want to go full meme, you can make CatLoggr overwrite the global `console` object! Use responsibly.
