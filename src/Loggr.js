@@ -10,15 +10,17 @@ module.exports = class CatLoggr {
      * Creates an instance of the logger.
      * @param {Object} [options] Configuration options
      * @param {string|number} [options.shardId] The shard ID that the logger is on
-     * @param {string} [level=info] The default log threshold
-     * @param {level[]} [levels] Custom level definitions
-     * @param {metaObject} [meta] The default meta configuration
-     * @param {WriteStream} [stdout] The output stream to use for general logs
-     * @param {WriteStream} [stderr] The output stream to use for error logs
+     * @param {string|number} [options.shardLength=4] The maximum number of characters that a shard can be
+     * @param {string} [options.level=info] The default log threshold
+     * @param {level[]} [options.levels] Custom level definitions
+     * @param {metaObject} [options.meta] The default meta configuration
+     * @param {WriteStream} [options.stdout] The output stream to use for general logs
+     * @param {WriteStream} [options.stderr] The output stream to use for error logs
      */
-    constructor({ shardId, level, levels, meta, stdout, stderr } = {}) {
+    constructor({ shardId, shardLength = 4, level, levels, meta, stdout, stderr } = {}) {
         if (shardId) {
             this._shard = shardId;
+            this._shardLength = shardLength;
             if (typeof this._shard === 'number' && this._shard < 10) this._shard = '0' + this._shard;
         }
 
@@ -218,8 +220,10 @@ module.exports = class CatLoggr {
      * @returns {string} The padded text 
      */
     _centrePad(text, length) {
-        return ' '.repeat(Math.floor((length - text.length) / 2))
-            + text + ' '.repeat(Math.ceil((length - text.length) / 2));
+        if (text.length < length)
+            return ' '.repeat(Math.floor((length - text.length) / 2))
+                + text + ' '.repeat(Math.ceil((length - text.length) / 2));
+        else return text;
     }
 
     /**
@@ -238,7 +242,7 @@ module.exports = class CatLoggr {
         let stream = err ? this._stderr : this._stdout;
         let shardText = '';
         if (this._shard)
-            shardText = chalk.black.bold.bgYellow(this._centrePad(this._shard.toString(), 4, false));
+            shardText = chalk.black.bold.bgYellow(this._centrePad(this._shard.toString(), this._shardLength, false));
 
         for (const hook of this._hooks.post) {
             if (typeof hook == 'function') {
