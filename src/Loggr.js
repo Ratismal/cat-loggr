@@ -242,7 +242,7 @@ module.exports = class CatLoggr {
         let stream = err ? this._stderr : this._stdout;
         let shardText = '';
         if (this._shard)
-            shardText = chalk.black.bold.bgYellow(this._centrePad(this._meta.shard.toString() || this._shard.toString(), this._shardLength, false));
+            shardText = chalk.black.bold.bgYellow(this._centrePad(this._meta.shard ? this._meta.shard.toString() : this._shard.toString(), this._shardLength, false));
 
         for (const hook of this._hooks.post) {
             if (typeof hook == 'function') {
