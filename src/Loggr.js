@@ -21,7 +21,7 @@ module.exports = class CatLoggr {
         if (shardId) {
             this._shard = shardId;
             this._shardLength = shardLength;
-            if (typeof this._shard === 'number' && this._shard < 10) this._shard = '0' + this._shard;
+            // if (typeof this._shard === 'number' && this._shard < 10) this._shard = '0' + this._shard;
         }
 
         this._stdout = stdout || process.stdout;
