@@ -6,6 +6,19 @@ const util = require('util');
  * Class containing logging functionality
  */
 module.exports = class CatLoggr {
+    static get DefaultLevels() {
+        return [
+            { name: 'fatal', color: chalk.red.bgBlack, err: true },
+            { name: 'error', color: chalk.black.bgRed, err: true },
+            { name: 'warn', color: chalk.black.bgYellow, err: true },
+            { name: 'trace', color: chalk.green.bgBlack, trace: true },
+            { name: 'init', color: chalk.black.bgBlue },
+            { name: 'info', color: chalk.black.bgGreen },
+            { name: 'verbose', color: chalk.black.bgCyan },
+            { name: 'debug', color: chalk.magenta.bgBlack, aliases: ['log', 'dir'] }
+        ];
+    }
+
     /**
      * Creates an instance of the logger.
      * @param {Object} [options] Configuration options
@@ -27,16 +40,7 @@ module.exports = class CatLoggr {
         this._stdout = stdout || process.stdout;
         this._stderr = stderr || process.stderr;
 
-        this.setLevels(levels || [
-            { name: 'fatal', color: chalk.red.bgBlack, err: true },
-            { name: 'error', color: chalk.black.bgRed, err: true },
-            { name: 'warn', color: chalk.black.bgYellow, err: true },
-            { name: 'trace', color: chalk.green.bgBlack, trace: true },
-            { name: 'init', color: chalk.black.bgBlue },
-            { name: 'info', color: chalk.black.bgGreen },
-            { name: 'verbose', color: chalk.black.bgCyan },
-            { name: 'debug', color: chalk.magenta.bgBlack, aliases: ['log', 'dir'] }
-        ]);
+        this.setLevels(levels || CatLoggr.DefaultLevels);
 
 
         this.setLevel(level || this.__levels[this.__levels.length - 1].name);
@@ -289,6 +293,13 @@ module.exports = class CatLoggr {
         if (level.position > this._level.position) return;
         let output = '';
         let text = [];
+        if (typeof args[0] === 'string') {
+            let formats = args[0].match(/%[sdifjoO]/g);
+            if (formats) {
+                let a = args.splice(1, formats.length);
+                args.unshift(util.format(args.shift(), ...a));
+            }
+        }
         for (const arg of args) {
             let finished = false;
             for (const hook of this._hooks.arg) {
