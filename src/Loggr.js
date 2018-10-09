@@ -267,6 +267,8 @@ module.exports = class CatLoggr {
         }
 
         stream.write(`${shardText}${timestamp.formatted}${levelStr} ${text}\n`);
+
+        this._meta = {};
         return this;
     }
 
@@ -277,7 +279,7 @@ module.exports = class CatLoggr {
      */
     meta(meta = {}) {
         let temp = this._defaultMeta;
-        Object.assign(temp, meta);
+        Object.assign({}, temp, meta);
         this._meta = temp;
         return this;
     }
