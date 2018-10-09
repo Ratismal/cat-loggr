@@ -278,8 +278,8 @@ module.exports = class CatLoggr {
      * @returns {CatLoggr} Self for chaining
      */
     meta(meta = {}) {
-        let temp = this._defaultMeta;
-        Object.assign({}, temp, meta);
+        let temp = {};
+        Object.assign(temp, this._defaultMeta, meta);
         this._meta = temp;
         return this;
     }
