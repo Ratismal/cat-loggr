@@ -28,7 +28,7 @@ npm i --save cat-loggr
 ```js
 const CatLoggr = require('cat-loggr');
 
-const loggr = new CatLogger();
+const loggr = new CatLoggr();
 
 loggr.log('Hello, world!');
 ```
