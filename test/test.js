@@ -1,5 +1,5 @@
 const assert = require('assert');
-const CatLoggr = require('../index.js');
+const CatLoggr = require('../dist/index.js');
 
 describe('CatLoggr', function () {
     describe('should instantiate', function () {
@@ -12,7 +12,7 @@ describe('CatLoggr', function () {
         });
         it('with a default level', function () {
             let loggr = new CatLoggr({ level: 'info' });
-            assert.equal(loggr.__level, 'info');
+            assert.equal(loggr._levelName, 'info');
         });
         it('with default level definitions', function () {
             let loggr = new CatLoggr({
@@ -22,7 +22,7 @@ describe('CatLoggr', function () {
                 ]
             });
             assert.equal(Object.values(loggr._levels).length, 2);
-            assert.equal(loggr.__level, 'fish');
+            assert.equal(loggr._levelName, 'fish');
         });
         it('with a default meta definition', function () {
             let loggr = new CatLoggr({

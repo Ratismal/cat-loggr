@@ -1,1 +1,1 @@
-module.exports = require('./src/Loggr');
+module.exports = require('./dist/Loggr');

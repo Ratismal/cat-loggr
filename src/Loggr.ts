@@ -3,18 +3,19 @@ import { Chalk, ColorSupport } from 'chalk';
 import * as moment from 'moment';
 import { format, inspect } from 'util';
 import { WriteStream } from 'tty';
+import * as util from 'util';
 
 export class LoggrConfig {
-  public shardId: number;
-  public shardLength: number;
+  public shardId?: number | string;
+  public shardLength?: number;
 
-  public level: string;
-  public levels: LogLevel[];
+  public level?: string;
+  public levels?: LogLevel[];
 
-  public meta: LogMeta;
+  public meta?: LogMeta;
 
-  public stdout: WriteStream;
-  public stderr: WriteStream;
+  public stdout?: WriteStream;
+  public stderr?: WriteStream;
 
   constructor({ shardId, shardLength, level, levels, meta, stdout, stderr }: LoggrConfig) {
     this.shardId = shardId;
@@ -67,15 +68,56 @@ export class LogMeta {
   public depth?: number = 1;
   public color?: boolean = true;
   public trace?: boolean = false;
+  public shardId?: string | number = '';
+  public quote?: boolean = false;
 
-  constructor({ depth = 1, color = true, trace = false }: LogMeta) {
+  constructor({ depth = 1, color = true, trace = false, shardId = '', quote = false }: LogMeta) {
     this.depth = depth;
     this.color = color;
     this.trace = trace;
+    this.shardId = shardId;
+    this.quote = quote;
   }
 }
 
-type ArgHookCallback = (params: { arg?: any, date: Date }) => string | null;
+/**
+ * An argument hook callback function
+ * 
+ * @callback ArgHookCallback
+ * @param {Object} params The params that are sent by the hook
+ * @param {*} [params.arg] The provided argument
+ * @param {Date} params.date The timestamp of execution
+ * @returns {string|null} The processed argument result, or `null` to continue executing
+ */
+export type ArgHookCallback = (params: { arg?: any, date: Date }) => string | null;
+
+/**
+ * A post hook callback function
+ * 
+ * @callback postHookCallback
+ * @param {Object} params The params that are sent by the hook
+ * @param {string} params.level The level of the log
+ * @param {boolean} params.error A flag signifying that the log is an error
+ * @param {string} params.text The final formatted text
+ * @param {Date} params.date The timestamp of execution
+ * @param {string} params.timestamp The formatted timestamp
+ * @param {string} [params.shard] The shard ID
+ * @returns {string|null} The processed result, or `null` to continue executing
+ */
+export type PostHookCallback = (params: {
+  level: string,
+  error: boolean,
+  text: string,
+  date: Date,
+  timestamp: string,
+  shard?: string
+}) => string | null;
+
+export class LogHooks {
+  public arg: ArgHookCallback[] = [];
+  public post: PostHookCallback[] = [];
+}
+
 
 /**
  * Class containing logging functionality
@@ -95,7 +137,7 @@ export default class CatLoggr {
   }
 
   private _config: LoggrConfig;
-  private _shard: number;
+  private _shard: number | string;
   private _shardLength: number;
   private _levelName: string;
   private _levels: LogLevel[];
@@ -105,8 +147,9 @@ export default class CatLoggr {
   private _stdout: WriteStream | NodeJS.WriteStream;
   private _stderr: WriteStream | NodeJS.WriteStream;
   private _maxLength: number;
+  private _hooks: LogHooks;
 
-  // [key: string]: any;
+  [key: string]: any;
 
   /**
    * Creates an instance of the logger.
@@ -119,7 +162,8 @@ export default class CatLoggr {
    * @param {WriteStream} [options.stdout] The output stream to use for general logs
    * @param {WriteStream} [options.stderr] The output stream to use for error logs
    */
-  constructor(config: LoggrConfig) {
+  constructor(config?: LoggrConfig) {
+    if (!config) config = new LoggrConfig({});
     this._config = config;
     if (config.shardId) {
       this._shard = config.shardId;
@@ -132,67 +176,39 @@ export default class CatLoggr {
 
     this.setLevels(config.levels || CatLoggr.DefaultLevels);
 
-
-    this.setLevel(config.level || this.__levels[this.__levels.length - 1].name);
+    this.setLevel(config.level || this._levels[this._levels.length - 1].name);
 
     this.setDefaultMeta(config.meta || {});
 
     this._meta = {};
 
-    this._hooks = {
-      arg: [],
-      post: []
-    };
+    this._hooks = new LogHooks();
   }
 
   /**
    * A helper reference to the chalk library
    */
-  static get _chalk() {
+  static get _chalk(): Chalk {
     return chalk;
   }
 
   /**
-   * An argument hook callback function
-   * 
-   * @callback argHookCallback
-   * @param {Object} params The params that are sent by the hook
-   * @param {*} [params.arg] The provided argument
-   * @param {Date} params.date The timestamp of execution
-   * @returns {string|null} The processed argument result, or `null` to continue executing
-   */
-
-  /**
    * Adds na arg-hook
-   * @param {preHookCallback} func The hook callback 
+   * @param {ArgHookCallback} func The hook callback 
    * @returns {CatLoggr} Self for chaining
    */
-  addArgHook(func: (params: { arg: any, date: Date }) => string | null) {
+  addArgHook(func: ArgHookCallback) {
     this._hooks.arg.push(func);
 
     return this;
   }
 
   /**
-   * A post hook callback function
    * 
-   * @callback postHookCallback
-   * @param {Object} params The params that are sent by the hook
-   * @param {string} params.level The level of the log
-   * @param {boolean} params.error A flag signifying that the log is an error
-   * @param {string} params.text The final formatted text
-   * @param {Date} params.date The timestamp of execution
-   * @param {string} params.timestamp The formatted timestamp
-   * @param {string} [params.shard] The shard ID
-   * @returns {string|null} The processed result, or `null` to continue executing
-   */
-
-  /**
-   * 
-   * @param {postHookCallback} func
+   * @param {PostHookCallback} func
    * @returns {CatLoggr} Self for chaining
    */
-  addPostHook(func) {
+  addPostHook(func: PostHookCallback) {
     this._hooks.post.push(func);
 
     return this;
@@ -223,10 +239,10 @@ export default class CatLoggr {
     if (typeof level !== 'string')
       throw new TypeError('level must be a string');
 
-    if (!this._levels[level])
+    if (!this._levelMap[level])
       throw new Error(`the level '${level}' does not exist`);
 
-    this.__level = level;
+    this._levelName = level;
     return this;
   }
 
@@ -249,6 +265,7 @@ export default class CatLoggr {
       throw new TypeError('levels must be an array.');
 
     this._levelMap = {};
+    this._levels = levels;
     let max = 0;
     this._levels = this._levels.map(l => {
       l.position = this._levels.indexOf(l);
@@ -264,7 +281,7 @@ export default class CatLoggr {
     });
 
     if (!this._levelMap[this._levelName])
-      this._level = this._levelMap[this._levels.length - 1].name;
+      this._levelName = this._levels[this._levels.length - 1].name;
 
     this._maxLength = max + 2;
 
@@ -285,7 +302,7 @@ export default class CatLoggr {
   }
 
   get _level() {
-    return this._levels[this.__level];
+    return this._levelMap[this._levelName];
   }
 
   get _timestamp() {
@@ -304,7 +321,7 @@ export default class CatLoggr {
    * @param {number} length The length that it should be padded to
    * @returns {string} The padded text 
    */
-  _centrePad(text, length) {
+  _centrePad(text: string, length: number) {
     if (text.length < length)
       return ' '.repeat(Math.floor((length - text.length) / 2))
         + text + ' '.repeat(Math.ceil((length - text.length) / 2));
@@ -321,13 +338,17 @@ export default class CatLoggr {
    * @param {Date} timestamp.raw The raw timestamp
    * @returns {CatLoggr} Self for chaining
    */
-  _write(level, text, err = false, timestamp) {
+  _write(level: LogLevel, text: string, err: boolean = false,
+    timestamp?: { formatted: string, raw: Date, formattedRaw: string }) {
     if (!timestamp) timestamp = this._timestamp;
     let levelStr = level.color(this._centrePad(level.name, this._maxLength));
     let stream = err ? this._stderr : this._stdout;
     let shardText = '';
     if (this._shard)
-      shardText = chalk.black.bold.bgYellow(this._centrePad(this._meta.shard ? this._meta.shard.toString() : this._shard.toString(), this._shardLength, false));
+      shardText = chalk.black.bold.bgYellow(
+        this._centrePad(this._meta.shardId ? this._meta.shardId.toString() : this._shard.toString(),
+          this._shardLength)
+      );
 
     for (const hook of this._hooks.post) {
       if (typeof hook == 'function') {
@@ -367,11 +388,11 @@ export default class CatLoggr {
 
   /**
    * Formats logs in preparation for writing.
-   * @param {*} level The level of the log
+   * @param {string} level The level of the log
    * @param {*} args The args that were directly passed to the function
    * @returns {CatLoggr} Self for chaining
    */
-  _format(level, ...args) {
+  _format(level: LogLevel, ...args: any[]) {
     let timestamp = this._timestamp;
     if (level.position > this._level.position) return;
     let output = '';
@@ -403,7 +424,7 @@ export default class CatLoggr {
       if (typeof arg === 'string') {
         text.push(chalk.magenta(this._meta.quote ? `'${arg}'` : arg));
       } else if (typeof arg === 'number') {
-        text.push(chalk.cyan(arg));
+        text.push(chalk.cyan(arg.toString()));
       } else if (typeof arg === 'object') {
         text.push('\n');
 
