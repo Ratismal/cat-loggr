@@ -1,5 +1,8 @@
 "use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-const Loggr_1 = require("./Loggr");
-exports.default = Loggr_1.default;
-//# sourceMappingURL=ts.js.map
+function __export(m) {
+    for (var p in m) if (!exports.hasOwnProperty(p)) exports[p] = m[p];
+}
+exports.__esModule = true;
+var Loggr_1 = require("./dist/Loggr");
+exports["default"] = Loggr_1["default"];
+__export(require("./dist/Loggr"));
