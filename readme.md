@@ -29,7 +29,7 @@ npm i --save cat-loggr
 // JavaScript:
 const CatLoggr = require('cat-loggr');
 // TypeScript:
-import CatLoggr from 'cat-loggr-ts';
+import CatLoggr from 'cat-loggr/ts';
 
 const loggr = new CatLoggr();
 
