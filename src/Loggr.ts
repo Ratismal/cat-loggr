@@ -1,6 +1,6 @@
 import chalk from 'chalk';
 import { Chalk, ColorSupport } from 'chalk';
-import * as moment from 'moment';
+import * as dayjs from 'dayjs';
 import { format, inspect } from 'util';
 import { WriteStream } from 'tty';
 import * as util from 'util';
@@ -8,6 +8,8 @@ import * as util from 'util';
 export class LoggrConfig {
   public shardId?: number | string;
   public shardLength?: number;
+
+  public timestampFormat?: string;
 
   public level?: string;
   public levels?: LogLevel[];
@@ -17,7 +19,7 @@ export class LoggrConfig {
   public stdout?: WriteStream;
   public stderr?: WriteStream;
 
-  constructor({ shardId, shardLength, level, levels, meta, stdout, stderr }: LoggrConfig) {
+  constructor({ shardId, shardLength, level, levels, meta, stdout, stderr, timestampFormat }: LoggrConfig) {
     this.shardId = shardId;
     this.shardLength = shardLength;
     this.level = level;
@@ -25,6 +27,7 @@ export class LoggrConfig {
     this.meta = meta;
     this.stdout = stdout;
     this.stderr = stderr;
+    this.timestampFormat = timestampFormat;
   }
 }
 
@@ -70,13 +73,15 @@ export class LogMeta {
   public trace?: boolean = false;
   public shardId?: string | number = '';
   public quote?: boolean = false;
+  public context?: object = {};
 
-  constructor({ depth = 1, color = true, trace = false, shardId = '', quote = false }: LogMeta) {
+  constructor({ depth = 1, color = true, trace = false, shardId = '', quote = false, context = {} }: LogMeta) {
     this.depth = depth;
     this.color = color;
     this.trace = trace;
     this.shardId = shardId;
     this.quote = quote;
+    this.context = context;
   }
 }
 
@@ -94,7 +99,7 @@ export type ArgHookCallback = (params: { arg?: any, date: Date }) => string | nu
 /**
  * A post hook callback function
  * 
- * @callback postHookCallback
+ * @callback PostHookCallback
  * @param {Object} params The params that are sent by the hook
  * @param {string} params.level The level of the log
  * @param {boolean} params.error A flag signifying that the log is an error
@@ -102,6 +107,8 @@ export type ArgHookCallback = (params: { arg?: any, date: Date }) => string | nu
  * @param {Date} params.date The timestamp of execution
  * @param {string} params.timestamp The formatted timestamp
  * @param {string} [params.shard] The shard ID
+ * @param {object} [params.context] Context passed through meta info
+ * @param {LogMeta} [params.meta] Raw meta info
  * @returns {string|null} The processed result, or `null` to continue executing
  */
 export type PostHookCallback = (params: {
@@ -110,10 +117,39 @@ export type PostHookCallback = (params: {
   text: string,
   date: Date,
   timestamp: string,
-  shard?: string
+  shard?: string,
+  context?: Object,
+  meta: LogMeta
+}) => string | null;
+
+/**
+ * A post hook callback function
+ * 
+ * @callback PreHookCallback
+ * @param {Object} params The params that are sent by the hook
+ * @param {string} params.level The level of the log
+ * @param {boolean} params.error A flag signifying that the log is an error
+ * @param {any[]} params.args The args being logged
+ * @param {Date} params.date The timestamp of execution
+ * @param {string} params.timestamp The formatted timestamp
+ * @param {string} [params.shard] The shard ID
+ * @param {object} [params.context] Context passed through meta info
+ * @param {LogMeta} [params.meta] Raw meta info
+ * @returns {string|null} The processed result, or `null` to continue executing
+ */
+export type PreHookCallback = (params: {
+  level: string,
+  error: boolean,
+  args: any[],
+  date: Date,
+  timestamp: string,
+  shard?: string,
+  context?: Object,
+  meta: LogMeta
 }) => string | null;
 
 export class LogHooks {
+  public pre: PreHookCallback[] = [];
   public arg: ArgHookCallback[] = [];
   public post: PostHookCallback[] = [];
 }
@@ -193,7 +229,18 @@ export default class CatLoggr {
   }
 
   /**
-   * Adds na arg-hook
+   * Adds a pre-hook
+   * @param {ArgHookCallback} func The hook callback 
+   * @returns {CatLoggr} Self for chaining
+   */
+  addPreHook(func: ArgHookCallback) {
+    this._hooks.pre.push(func);
+
+    return this;
+  }
+
+  /**
+   * Adds an arg-hook
    * @param {ArgHookCallback} func The hook callback 
    * @returns {CatLoggr} Self for chaining
    */
@@ -204,7 +251,7 @@ export default class CatLoggr {
   }
 
   /**
-   * 
+   * Adds a post-hook
    * @param {PostHookCallback} func
    * @returns {CatLoggr} Self for chaining
    */
@@ -306,8 +353,8 @@ export default class CatLoggr {
   }
 
   get _timestamp() {
-    let ts = moment();
-    let formatted = ts.format('MM/DD HH:mm:ss');
+    let ts = dayjs();
+    let formatted = ts.format(this._config.timestampFormat || 'MM/DD HH:mm:ss');
     return {
       raw: ts.toDate(),
       formatted: chalk.black.bgWhite(` ${formatted} `),
@@ -358,7 +405,9 @@ export default class CatLoggr {
           timestamp: timestamp.formattedRaw,
           shard: this._shard ? this._shard.toString() : undefined,
           level: level.name,
-          error: level.err
+          error: level.err,
+          context: this._meta.context,
+          meta: this._meta
         });
         if (res === undefined || res === null) continue;
         else {
@@ -404,6 +453,20 @@ export default class CatLoggr {
         args.unshift(util.format(args.shift(), ...a));
       }
     }
+
+    for (const hook of this._hooks.pre) {
+      let res = hook({
+        args,
+        date: timestamp.raw,
+        timestamp: timestamp.formattedRaw,
+        shard: this._shard ? this._shard.toString() : undefined,
+        level: level.name,
+        error: level.err,
+        context: this._meta.context,
+        meta: this._meta
+      });
+    }
+
     for (const arg of args) {
       let finished = false;
       for (const hook of this._hooks.arg) {

@@ -71,6 +71,33 @@ describe('CatLoggr', function () {
         assert.equal(a, b);
     });
 
+    it('should execute pre-hooks', function() {
+        let a = new CatLoggr();
+        let b;
+        a.addPreHook(params => b = params.args);
+
+        a.log('a', 'b', 'c')
+        assert.deepStrictEqual(b, ['a', 'b', 'c']);
+    });
+
+    it('should execute arg-hooks', function() {
+        let a = new CatLoggr();
+        let b = [];
+        a.addArgHook(params => b.push(params.arg));
+
+        a.log('a', 'b', 'c');
+        assert.deepStrictEqual(b, ['a', 'b', 'c']);
+    });
+
+    it('should execute post-hooks', function() {
+        let a = new CatLoggr();
+        let b;
+        a.addPostHook(params => b = params.text);
+
+        a.log('a', 'b', 'c');
+        assert.strictEqual(b, '\u001b[35ma\u001b[39m \u001b[35mb\u001b[39m \u001b[35mc\u001b[39m');
+    });
+
     it('should be cute', function () {
         return true;
     });
